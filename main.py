@@ -44,6 +44,7 @@ response = chain.invoke({
     'question' : question
 })
 
+
 # cevabı yazma
 
 print('\n', response.content)
