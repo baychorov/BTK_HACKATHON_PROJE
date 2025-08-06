@@ -1,6 +1,6 @@
 # 🧙‍♂ HistorAI - Tarihi Karakter Chatbotu
 
-PROJEYİ ÇALIŞTIRMAK VE ERİŞMEK İÇİN ; 
+Projeyi yerel olarak çalıştırmak için kurulum adımlarını inceleyebilirsiniz.
 
 ## 🚀 Kurulum
 1. `pip install -r requirements.txt`
@@ -17,6 +17,10 @@ https://btkhackathonproject-hefzbortmg4mxazvlpqgpx.streamlit.app/
 
 ## 📧 İletişim
 baycorabaykan@gmail.com 
+https://www.linkedin.com/in/baykan-nuri-bay%C3%A7ora-17a197285/
+
+092003alper@gmail.com
+https://www.linkedin.com/in/alperdurmus1/
 
 --------------------------------------------------------------------------------
 PROJE TANITIMI 
