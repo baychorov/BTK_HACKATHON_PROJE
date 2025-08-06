@@ -473,6 +473,15 @@ with st.sidebar:
             content.append(Paragraph(f"Karakter: {character}", subtitle_style))
             content.append(Spacer(1, 30))
 
+            # Özet varsa ekle (mesaj döngüsünden önce)
+            if hasattr(st.session_state, 'conversation_summary') and st.session_state.conversation_summary:
+                summary_clean = str(st.session_state.conversation_summary).replace('&', '&amp;').replace('<',
+                                                                                                         '&lt;').replace(
+                    '>', '&gt;')
+                content.append(Paragraph("<b>📋 Sohbet Özeti:</b>", subtitle_style))
+                content.append(Paragraph(summary_clean, answer_style))
+                content.append(Spacer(1, 20))
+
             for i, (question, answer) in enumerate(messages, 1):
                 def clean_text(text):
                     return str(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
@@ -520,6 +529,12 @@ with st.sidebar:
 
             doc.add_paragraph('')
 
+            # Özet varsa ekle
+            if hasattr(st.session_state, 'conversation_summary') and st.session_state.conversation_summary:
+                summary_heading = doc.add_heading('📋 Sohbet Özeti', level=2)
+                summary_para = doc.add_paragraph(st.session_state.conversation_summary)
+                doc.add_paragraph('')
+
             # Mesajlar
             for i, (question, answer) in enumerate(messages, 1):
                 # Soru
@@ -559,6 +574,7 @@ with st.sidebar:
             data = {
                 "character": character,
                 "title": title,
+                "summary": st.session_state.conversation_summary if hasattr(st.session_state,'conversation_summary') else None,
                 "messages": [{"question": q, "answer": a} for q, a in messages]
             }
 
