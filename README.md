@@ -16,11 +16,11 @@ Projeyi yerel olarak çalıştırmak için kurulum adımlarını inceleyebilirsi
 https://btkhackathonproject-hefzbortmg4mxazvlpqgpx.streamlit.app/ 
 
 ## 📧 İletişim
-baycorabaykan@gmail.com 
-https://www.linkedin.com/in/baykan-nuri-bay%C3%A7ora-17a197285/
+- baycorabaykan@gmail.com 
+- https://www.linkedin.com/in/baykan-nuri-bay%C3%A7ora-17a197285/
 
-092003alper@gmail.com
-https://www.linkedin.com/in/alperdurmus1/
+- 092003alper@gmail.com
+- https://www.linkedin.com/in/alperdurmus1/
 
 --------------------------------------------------------------------------------
 PROJE TANITIMI 
