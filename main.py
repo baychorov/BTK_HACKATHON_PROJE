@@ -253,15 +253,6 @@ with st.sidebar:
                     ORDER BY is_pinned DESC, created_at DESC""")
     conversations = c.fetchall()
 
-    # Eğer özet varsa göster
-    if hasattr(st.session_state, 'conversation_summary') and st.session_state.conversation_summary:
-        st.markdown("---")
-        with st.expander("📖 Sohbet Özeti", expanded=False):
-            st.markdown(st.session_state.conversation_summary)
-            if st.button("🗑️ Özeti Temizle", key="sidebar_clear_summary"):
-                del st.session_state.conversation_summary
-                st.rerun()
-
     # Sohbet listesi
     for conv_id, char, title, is_pinned, conv_type in conversations:
         pin_icon = "📌 " if is_pinned else ""
