@@ -6,6 +6,7 @@ import os
 import json
 from io import BytesIO
 from datetime import datetime
+import random
 
 # ReportLab - Türkçe karakterler için en iyi seçenek
 try:
@@ -53,7 +54,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS conversations
               character TEXT, 
               title TEXT,
               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-              is_pinned BOOLEAN DEFAULT 0)''')
+              is_pinned BOOLEAN DEFAULT 0,
+              conversation_type TEXT DEFAULT 'normal')''')
 
 c.execute('''CREATE TABLE IF NOT EXISTS messages 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -82,8 +84,7 @@ if old_table_exists:
 
 conn.commit()
 
-st.set_page_config(page_title="HistorAI", layout="wide")
-st.title("🧙‍♂ HistorAI - Tarihi Karakter Chatbotu")
+st.set_page_config(page_title="HistorAI", layout="wide", page_icon="🧙‍♂")
 
 # Session state başlatma
 if "current_conversation_id" not in st.session_state:
@@ -92,6 +93,148 @@ if "current_character" not in st.session_state:
     st.session_state.current_character = ""
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "home"
+if "time_travel_active" not in st.session_state:
+    st.session_state.time_travel_active = False
+
+# Tarihsel olaylar veri yapısı
+HISTORICAL_EVENTS = {
+    "1453": {
+        "event": "İstanbul'un Fethi",
+        "date": "29 Mayıs 1453",
+        "characters": ["Fatih Sultan Mehmet", "Konstantin XI", "Halil Paşa"],
+        "setting": "Konstantinopolis surları önünde top sesleri yankılanıyor. Fatih Sultan Mehmet son hazırlıkları gözden geçiriyor.",
+        "opening": "Şafak vakti, sur dibindeki çadırda Fatih Sultan Mehmet haritaya bakıyor ve sana dönerek diyor: 'Bu gece tarih yazılacak. Sen bu kutsal anda bizimle misin?'"
+    },
+    "1071": {
+        "event": "Malazgirt Savaşı",
+        "date": "26 Ağustos 1071",
+        "characters": ["Sultan Alparslan", "Romanos IV", "Nizam-ül Mülk"],
+        "setting": "Malazgirt ovalarında iki büyük ordu karşı karşıya. Sultan Alparslan beyaz kaftan giymiş, attan iniyor.",
+        "opening": "Sultan Alparslan kılıcını çıkararak toprağa saplar ve sana bakar: 'Eğer şehit düşersem, oğlum Melikşah'a bu kılıcı götür. Sen bu tarihi anın şahidi olmaya hazır mısın?'"
+    },
+    "1789": {
+        "event": "Fransız Devrimi",
+        "date": "14 Temmuz 1789",
+        "characters": ["Robespierre", "Danton", "Marat"],
+        "setting": "Paris sokaklarında barikatlar kuruluyor, halk Bastille'e yürüyor. Robespierre bir kahvehane köşesinde planlar yapıyor.",
+        "opening": "Robespierre gözlerinin içine bakıyor ve soruyor: 'Sen kimin tarafındasın? Kralın mı, yoksa halkın mı? Bu devrim için kanın akacak!'"
+    },
+    "1492": {
+        "event": "Amerika'nın Keşfi",
+        "date": "12 Ekim 1492",
+        "characters": ["Kristof Kolomb", "Martin Pinzon", "Rodrigo de Triana"],
+        "setting": "Santa Maria gemisinin güvertesinde, uzun deniz yolculuğunun ardından nihayet kara görünüyor.",
+        "opening": "Kolomb geminin direğinde duruyor ve sana dönerek diyor: 'İşte! Yeni bir dünya! Sen bu tarihi keşfin tanığı olmak ister misin?'"
+    },
+    "1299": {
+        "event": "Osmanlı Devleti'nin Kuruluşu",
+        "date": "1299",
+        "characters": ["Osman Gazi", "Şeyh Edebali", "Malhun Hatun"],
+        "setting": "Söğüt'te küçük bir beylik kurulmaya çalışılıyor. Osman Gazi çadırında gelecek planları yapıyor.",
+        "opening": "Osman Gazi rüyasını anlatıyor: 'Göğsümden bir ağaç çıktı, dalları tüm dünyayı kapladı. Sen bu rüyanın gerçek olacağına inanır mısın?'"
+    }
+}
+
+
+# Karakter tavsiye sistemi
+def analyze_conversation_style(messages):
+    """Konuşma tarzını analiz ederek karakter önerisi yapar"""
+    if len(messages) < 4:  # En az 2 soru-cevap
+        return None
+
+    user_messages = [msg["content"].lower() for msg in messages if msg["role"] == "user"]
+    all_text = " ".join(user_messages)
+
+    suggestions = []
+
+    # Felsefe ve düşünce ağırlıklı
+    philosophy_keywords = ["neden", "nasıl", "anlam", "düşünce", "felsefe", "hakikat", "bilgi", "akıl"]
+    if any(keyword in all_text for keyword in philosophy_keywords):
+        suggestions.extend([
+            {"name": "Sokrates", "reason": "Felsefi sorgulamalarınız Sokrates'in tarzına çok benziyor"},
+            {"name": "İbn Rüşd", "reason": "Akıl ve mantık odaklı yaklaşımınız İbn Rüşd ile uyumlu"},
+            {"name": "Farabi", "reason": "Bilgi arayışınız Farabi'nin yöntemleriyle örtüşüyor"}
+        ])
+
+    # Savaş ve strateji
+    war_keywords = ["savaş", "strateji", "ordu", "zafer", "mücadele", "liderlik"]
+    if any(keyword in all_text for keyword in war_keywords):
+        suggestions.extend([
+            {"name": "Selahaddin Eyyubi", "reason": "Strateji ve liderlik ilginiz Selahaddin'e uygun"},
+            {"name": "Napoléon Bonaparte", "reason": "Askeri strateji merakınız Napoléon'la eşleşiyor"}
+        ])
+
+    # Sanat ve estetik
+    art_keywords = ["sanat", "güzel", "estetik", "yaratıcı", "ilham", "şiir"]
+    if any(keyword in all_text for keyword in art_keywords):
+        suggestions.extend([
+            {"name": "Michelangelo", "reason": "Sanat ve yaratıcılık ilginiz Michelangelo ile uyumlu"},
+            {"name": "Fuzuli", "reason": "Estetik anlayışınız Fuzuli'nin şiirine yakın"}
+        ])
+
+    # Bilim ve keşif
+    science_keywords = ["bilim", "keşif", "araştırma", "deney", "gözlem", "doğa"]
+    if any(keyword in all_text for keyword in science_keywords):
+        suggestions.extend([
+            {"name": "Galileo Galilei", "reason": "Bilimsel merakınız Galileo'nun ruhunu yansıtıyor"},
+            {"name": "İbn Sina", "reason": "Araştırma tutkunu İbn Sina'ya çok benziyor"}
+        ])
+
+    return random.choice(suggestions) if suggestions else None
+
+
+# özet oluşturma fonksiyonu
+def create_conversation_summary(messages, character_name):
+    """Sohbet mesajlarından teknik tarihsel özet oluşturur"""
+    if len(messages) < 2:
+        return "Özet oluşturmak için yeterli mesaj bulunmuyor."
+
+    # Sadece kullanıcı sorularını ve AI yanıtlarını al
+    conversation_text = ""
+    for i in range(0, len(messages), 2):
+        if i + 1 < len(messages):
+            question = messages[i]["content"]
+            answer = messages[i + 1]["content"]
+            conversation_text += f"Soru: {question}\nCevap: {answer}\n\n"
+
+    summary_prompt = f"""
+    Aşağıdaki {character_name} karakteri ile yapılan sohbetin teknik tarihsel özetini çıkar:
+
+    ÖZET KURALLARI:
+    1. Yalnızca tarihsel olarak doğrulanabilir bilgileri özetle
+    2. Ana konuları madde halinde listele
+    3. Bahsedilen tarihsel olayları, tarihleri ve yerleri belirt
+    4. Karakterin verdiği önemli bilgileri vurgula
+    5. Maksimum 300 kelime ile sınırlı tut
+    6. Akademik ve objektif bir dil kullan
+
+    Sohbet İçeriği:
+    {conversation_text}
+
+    Lütfen bu sohbetin kısa ve öz tarihsel özetini çıkar:
+    """
+
+    try:
+        response = model.generate_content(summary_prompt)
+        return response.text
+    except Exception as e:
+        return f"Özet oluştururken hata: {str(e)}"
+
+# Anasayfa butonu - Sol üst köşe
+col_home, col_title = st.columns([1, 10])
+with col_home:
+    if st.button("🏠", help="Anasayfaya dön"):
+        st.session_state.current_page = "home"
+        st.session_state.current_conversation_id = None
+        st.session_state.current_character = ""
+        st.session_state.messages = []
+        st.session_state.time_travel_active = False
+        st.rerun()
+
+with col_title:
+    st.title("🧙‍♂ HistorAI - Tarihi Karakter Chatbotu")
 
 # Sağ panel: Sohbet geçmişi
 with st.sidebar:
@@ -102,24 +245,35 @@ with st.sidebar:
 
     # Sohbetleri getir (sabitlenenler önce)
     if filter_char:
-        c.execute("""SELECT id, character, title, is_pinned FROM conversations 
+        c.execute("""SELECT id, character, title, is_pinned, conversation_type FROM conversations 
                     WHERE character LIKE ? ORDER BY is_pinned DESC, created_at DESC""",
                   ('%' + filter_char + '%',))
     else:
-        c.execute("""SELECT id, character, title, is_pinned FROM conversations 
+        c.execute("""SELECT id, character, title, is_pinned, conversation_type FROM conversations 
                     ORDER BY is_pinned DESC, created_at DESC""")
     conversations = c.fetchall()
 
+    # Eğer özet varsa göster
+    if hasattr(st.session_state, 'conversation_summary') and st.session_state.conversation_summary:
+        st.markdown("---")
+        with st.expander("📖 Sohbet Özeti", expanded=False):
+            st.markdown(st.session_state.conversation_summary)
+            if st.button("🗑️ Özeti Temizle", key="sidebar_clear_summary"):
+                del st.session_state.conversation_summary
+                st.rerun()
+
     # Sohbet listesi
-    for conv_id, char, title, is_pinned in conversations:
+    for conv_id, char, title, is_pinned, conv_type in conversations:
         pin_icon = "📌 " if is_pinned else ""
-        label = f"{pin_icon}{char}: {title[:25]}..."
+        type_icon = "⏰ " if conv_type == "time_travel" else ""
+        label = f"{pin_icon}{type_icon}{char}: {title[:20]}..."
 
         col1, col2, col3 = st.columns([4, 1, 1])
         with col1:
             if st.button(label, key=f"conv_{conv_id}"):
                 st.session_state.current_conversation_id = conv_id
                 st.session_state.current_character = char
+                st.session_state.current_page = "chat"
                 # Mevcut sohbetin mesajlarını yükle
                 c.execute("SELECT question, answer FROM messages WHERE conversation_id = ? ORDER BY created_at",
                           (conv_id,))
@@ -149,6 +303,7 @@ with st.sidebar:
                 if st.session_state.current_conversation_id == conv_id:
                     st.session_state.current_conversation_id = None
                     st.session_state.messages = []
+                    st.session_state.current_page = "home"
                 st.rerun()
 
     st.divider()
@@ -158,6 +313,11 @@ with st.sidebar:
         st.session_state.current_conversation_id = None
         st.session_state.current_character = ""
         st.session_state.messages = []
+        st.session_state.current_page = "home"
+        st.session_state.time_travel_active = False
+        # session state temizleme (özet için)
+        if hasattr(st.session_state, 'conversation_summary'):
+            del st.session_state.conversation_summary
         st.rerun()
 
     # Tüm geçmişi sil
@@ -167,9 +327,34 @@ with st.sidebar:
         conn.commit()
         st.session_state.current_conversation_id = None
         st.session_state.messages = []
+        st.session_state.current_page = "home"
         st.rerun()
 
     st.divider()
+
+    # Sohbet özeti oluşturma
+    if st.session_state.current_conversation_id and len(st.session_state.messages) >= 2:
+        st.subheader("📋 Sohbet Özeti")
+
+        if st.button("🔍 Teknik Özet Oluştur"):
+            with st.spinner("Özet oluşturuluyor..."):
+                summary = create_conversation_summary(
+                    st.session_state.messages,
+                    st.session_state.current_character
+                )
+                st.session_state.conversation_summary = summary
+
+        # Eğer özet varsa göster
+        if hasattr(st.session_state, 'conversation_summary') and st.session_state.conversation_summary:
+            with st.expander("📖 Tarihsel Özet", expanded=True):
+                st.markdown(st.session_state.conversation_summary)
+
+                # Özeti temizle butonu
+                if st.button("🗑️ Özeti Temizle", key="chat_area_clear_summary"):
+                    del st.session_state.conversation_summary
+                    st.rerun()
+
+        st.divider()
 
     # İndirme seçenekleri
     st.subheader("📥 İndirme Seçenekleri")
@@ -571,8 +756,110 @@ if "test_scores" not in st.session_state:
 if "test_completed" not in st.session_state:
     st.session_state.test_completed = False
 
-# Ana sohbet alanı
-if not st.session_state.current_conversation_id:
+# Ana içerik - Sayfa yönlendirmesi
+if st.session_state.current_page == "home" and not st.session_state.current_conversation_id:
+    # ANASAYFA
+
+    # Karakter Tavsiyesi Motoru - Eğer önceki sohbetler varsa
+    if len(st.session_state.messages) >= 4:
+        suggestion = analyze_conversation_style(st.session_state.messages)
+        if suggestion:
+            st.markdown("---")
+            st.markdown("### 🎯 Size Özel Karakter Tavsiyesi")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.info(f"**{suggestion['name']}** - {suggestion['reason']}")
+            with col2:
+                if st.button(f"💬 {suggestion['name']} ile sohbet et", key="suggestion_chat"):
+                    st.session_state.current_character = suggestion['name']
+                    c.execute("INSERT INTO conversations (character, title, conversation_type) VALUES (?, ?, ?)",
+                              (suggestion['name'], f"{suggestion['name']} ile tavsiye sohbeti", "normal"))
+                    st.session_state.current_conversation_id = c.lastrowid
+                    conn.commit()
+                    st.session_state.current_page = "chat"
+                    st.rerun()
+
+    # Zamanda Yolculuk Bölümü
+    st.markdown("---")
+    st.markdown("### ⏰ Zamanda Yolculuk - Olay Anı Canlandırma")
+    st.markdown("*Tarihin en kritik anlarına gidip o dönemin karakterleriyle yaşayın!*")
+
+    if not st.session_state.time_travel_active:
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            selected_year = st.selectbox(
+                "Hangi tarihi olayın ortasına gitmek istersiniz?",
+                options=list(HISTORICAL_EVENTS.keys()),
+                format_func=lambda x: f"{x} - {HISTORICAL_EVENTS[x]['event']} ({HISTORICAL_EVENTS[x]['date']})"
+            )
+
+            if st.button("🚀 Zamanda Yolculuğa Başla", type="primary"):
+                st.session_state.time_travel_active = True
+                st.session_state.selected_event = selected_year
+                st.rerun()
+
+        with col2:
+            st.markdown("#### 🎭 Deneyim:")
+            st.markdown(
+                "🎬 Sinematik giriş  \n👥 Otomatik karakter eşleşmesi  \n🌍 Ortam betimlemesi  \n🎯 Interaktif roleplay")
+
+    else:
+        # Zamanda yolculuk aktif
+        event_data = HISTORICAL_EVENTS[st.session_state.selected_event]
+
+        st.markdown(f"### 🌍 {event_data['event']} - {event_data['date']}")
+
+        # Sinematik giriş
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            padding: 25px;
+            border-radius: 15px;
+            color: white;
+            margin: 20px 0;
+            border-left: 5px solid #f39c12;
+        ">
+            <h3>🎬 Zamanda Yolculuk Başlıyor...</h3>
+            <p style="font-size: 16px; line-height: 1.6;">
+                <strong>Ortam:</strong> {event_data['setting']}
+            </p>
+            <p style="font-size: 18px; font-style: italic; margin-top: 20px;">
+                "{event_data['opening']}"
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Karakter seçimi
+        st.markdown("#### 👥 Bu olayda kiminle karşılaşmak istersiniz?")
+        selected_character = st.radio(
+            "Karakter seçin:",
+            event_data['characters'],
+            horizontal=True
+        )
+
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🎭 Bu Karakterle Sohbete Başla", type="primary"):
+                st.session_state.current_character = selected_character
+                # Zamanda yolculuk sohbeti oluştur
+                c.execute("INSERT INTO conversations (character, title, conversation_type) VALUES (?, ?, ?)",
+                          (selected_character, f"{event_data['event']} - {selected_character}", "time_travel"))
+                st.session_state.current_conversation_id = c.lastrowid
+                conn.commit()
+
+                # İlk mesajı otomatik olarak ekle
+                opening_message = f"Zamanda yolculuk yaparak {event_data['date']} tarihindeki {event_data['event']} olayının tam ortasındayım. {event_data['opening']}"
+                st.session_state.messages = [{"role": "user", "content": opening_message}]
+
+                st.session_state.time_travel_active = False
+                st.session_state.current_page = "chat"
+                st.rerun()
+
+        with col1:
+            if st.button("↩ Geri Dön"):
+                st.session_state.time_travel_active = False
+                st.rerun()
+
     # Tarihî Kişilik Testi Bölümü
     st.markdown("---")
 
@@ -580,7 +867,7 @@ if not st.session_state.current_conversation_id:
 
     with col1:
         st.markdown("### 🧬 Tarihî Kişilik Testi")
-        st.markdown("**5 soruluk kısa testle hangi tarihi karaktere benzediğinizi keşfedin!**")
+        st.markdown("*5 soruluk kısa testle hangi tarihi karaktere benzediğinizi keşfedin!*")
 
         if not st.session_state.test_active and not st.session_state.test_completed:
             if st.button("🚀 Teste Başla", type="primary"):
@@ -608,7 +895,7 @@ if not st.session_state.current_conversation_id:
             question_data = PERSONALITY_TEST["questions"][current_q]
 
             st.markdown(f"### 📝 Soru {current_q + 1}")
-            st.markdown(f"**{question_data['question']}**")
+            st.markdown(f"{question_data['question']}")
 
             # Seçenekleri radio button olarak göster
             option_labels = [opt["text"] for opt in question_data["options"]]
@@ -623,7 +910,7 @@ if not st.session_state.current_conversation_id:
             col1, col2, col3 = st.columns([1, 1, 2])
 
             with col2:
-                if st.button("➡️ Sonraki Soru", type="primary"):
+                if st.button("➡ Sonraki Soru", type="primary"):
                     # Seçilen seçeneğin trait puanlarını ekle
                     selected_traits = question_data["options"][selected_option]["traits"]
                     for trait, score in selected_traits.items():
@@ -692,26 +979,28 @@ if not st.session_state.current_conversation_id:
                 with col2:
                     if st.button(f"💬 {character['name']} ile Sohbet Başlat", type="primary", key="start_chat_best"):
                         st.session_state.current_character = character['name']
-                        c.execute("INSERT INTO conversations (character, title) VALUES (?, ?)",
-                                  (character['name'], f"{character['name']} ile kişilik testi sohbeti"))
+                        c.execute("INSERT INTO conversations (character, title, conversation_type) VALUES (?, ?, ?)",
+                                  (character['name'], f"{character['name']} ile kişilik testi sohbeti", "personality"))
                         st.session_state.current_conversation_id = c.lastrowid
                         conn.commit()
                         st.session_state.test_completed = False
+                        st.session_state.current_page = "chat"
                         st.rerun()
 
             else:
                 # Diğer eşleşmeler
                 with st.expander(f"#{i + 1} - {character['name']} (%{percentage:.0f} uyumluluk)"):
-                    st.markdown(f"**{character['description']}**")
-                    st.markdown(f"*\"{character['quote']}\"*")
+                    st.markdown(f"{character['description']}")
+                    st.markdown(f"\"{character['quote']}\"")
 
                     if st.button(f"💬 {character['name']} ile Sohbet Başlat", key=f"start_chat_{i}"):
                         st.session_state.current_character = character['name']
-                        c.execute("INSERT INTO conversations (character, title) VALUES (?, ?)",
-                                  (character['name'], f"{character['name']} ile kişilik testi sohbeti"))
+                        c.execute("INSERT INTO conversations (character, title, conversation_type) VALUES (?, ?, ?)",
+                                  (character['name'], f"{character['name']} ile kişilik testi sohbeti", "personality"))
                         st.session_state.current_conversation_id = c.lastrowid
                         conn.commit()
                         st.session_state.test_completed = False
+                        st.session_state.current_page = "chat"
                         st.rerun()
 
         # Testi tekrar alma butonu
@@ -724,7 +1013,7 @@ if not st.session_state.current_conversation_id:
                 st.rerun()
 
         with col2:
-            if st.button("➡️ Manuel Karakter Seç"):
+            if st.button("➡ Manuel Karakter Seç"):
                 st.session_state.test_completed = False
                 st.rerun()
 
@@ -738,15 +1027,43 @@ if not st.session_state.current_conversation_id:
         if character:
             st.session_state.current_character = character
             # Yeni conversation oluştur
-            c.execute("INSERT INTO conversations (character, title) VALUES (?, ?)",
-                      (character, f"{character} ile sohbet"))
+            c.execute("INSERT INTO conversations (character, title, conversation_type) VALUES (?, ?, ?)",
+                      (character, f"{character} ile sohbet", "manual"))
             st.session_state.current_conversation_id = c.lastrowid
             conn.commit()
+            st.session_state.current_page = "chat"
             st.rerun()
 
-else:
-    # Mevcut sohbet
+elif st.session_state.current_page == "chat" or st.session_state.current_conversation_id:
+    # SOHBET SAYFASI
     st.markdown(f"### 🗣 {st.session_state.current_character} ile sohbet ediyorsunuz")
+
+    # Karakter tavsiyesi (sohbet sırasında)
+    if len(st.session_state.messages) >= 6:  # 3 soru-cevap döngüsünden sonra
+        suggestion = analyze_conversation_style(st.session_state.messages)
+        if suggestion and suggestion['name'] != st.session_state.current_character:
+            with st.expander("🎯 Size başka bir karakter önerisi var!", expanded=False):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.info(f"**{suggestion['name']}** - {suggestion['reason']}")
+                with col2:
+                    if st.button(f"💬 {suggestion['name']}", key="mid_chat_suggestion"):
+                        # Mevcut sohbeti kaydet ve yeni karakter ile başla
+                        if st.session_state.messages:
+                            first_question = st.session_state.messages[0]["content"] if st.session_state.messages[0][
+                                                                                            "role"] == "user" else "Sohbet"
+                            title = first_question[:50] + "..." if len(first_question) > 50 else first_question
+                            c.execute("UPDATE conversations SET title = ? WHERE id = ?",
+                                      (title, st.session_state.current_conversation_id))
+                            conn.commit()
+
+                        st.session_state.current_character = suggestion['name']
+                        c.execute("INSERT INTO conversations (character, title, conversation_type) VALUES (?, ?, ?)",
+                                  (suggestion['name'], f"{suggestion['name']} ile tavsiye sohbeti", "suggestion"))
+                        st.session_state.current_conversation_id = c.lastrowid
+                        conn.commit()
+                        st.session_state.messages = []
+                        st.rerun()
 
     # Sohbet geçmişini göster
     for message in st.session_state.messages:
@@ -756,7 +1073,14 @@ else:
         else:
             with st.chat_message("assistant"):
                 st.write(message["content"])
-
+    # Eğer özet varsa göster
+    if hasattr(st.session_state, 'conversation_summary') and st.session_state.conversation_summary:
+        st.markdown("---")
+        with st.expander("📖 Sohbet Özeti", expanded=False):
+            st.markdown(st.session_state.conversation_summary)
+            if st.button("🗑️ Özeti Temizle", key="main_clear_summary"):
+                del st.session_state.conversation_summary
+                st.rerun()
     # Yeni mesaj girişi
     if prompt := st.chat_input("Sorunuzu yazın..."):
         # Kullanıcı mesajını ekle
@@ -767,26 +1091,44 @@ else:
         # AI yanıtı oluştur
         with st.chat_message("assistant"):
             with st.spinner("Yanıt oluşturuluyor..."):
-                ai_prompt = f"""
+                # Zamanda yolculuk sohbeti için özel prompt
+                if len(st.session_state.messages) == 1 and "Zamanda yolculuk" in st.session_state.messages[0][
+                    "content"]:
+                    ai_prompt = f"""
+Sen {st.session_state.current_character} olarak, kullanıcının zamanda yolculuk yaparak seni ziyaret ettiği bu özel anı canlandırıyorsun.
+
+ZAMANDA YOLCULUK ROLEPLAY KURALLARI:
+1. Atmosferi ve ortamı detaylı betimle
+2. O dönemin gerginliği, kokuları, sesleri, görüntüleri dahil et
+3. Karakterin o anki ruh hali ve durumunu yansıt
+4. Kullanıcıyı bu tarihi olayın bir parçası gibi hissettir
+5. Dönem diline uygun ama anlaşılır şekilde konuş
+
+Kullanıcının mesajı: {prompt}
+
+Bu tarihi anı tam olarak yaşatarak, kendini {st.session_state.current_character} olarak tanıt ve durumu betimle.
+"""
+                else:
+                    ai_prompt = f"""
 Sen yalnızca tarihsel olarak belgelenmiş, gerçek ve yaşamış karakterlerin rolünü yapabilirsin...
 
-*TEMEL KURALLAR:*
+TEMEL KURALLAR:
 1. Yalnızca insanlık tarihinde yaşamış, güvenilir tarihsel kaynaklarda yer alan kişiliklerin yerine geçebilirsin.
 2. Her yanıtın tarihsel olarak doğrulanabilir olmalı. Uydurma bilgi, tahmin ya da kurgu içerik üretmek kesinlikle yasaktır.
 
-*ROL YAPMAYI REDDETMEN GEREKEN DURUMLAR:*
+ROL YAPMAYI REDDETMEN GEREKEN DURUMLAR:
 - Gerçek olmayan, hayali veya anlamsız karakterler (örneğin: "Merhaba", "Kral Ejder", "Mehmet", "RobotX")
 - Tarihsel figür olmayan çağdaş kişiler (örneğin: Elon Musk, Donald Trump, Britney Spears, Ronaldo)
 - Türkiye Cumhuriyeti tarafından hassas kabul edilen kişi ve içerikler (örneğin: terör örgütleri ve terör örgütü kurucuları, suçlu nitelikteki insanlar)
 - Dini, tanrısal veya kutsal figürler (örneğin: Tanrı, Hz. Muhammed, İsa)
 - Küfür, cinsellik, hakaret ve toplumsal olarak hassas konular
 
-*Bu tür isteklerde:*
+Bu tür isteklerde:
 - Nazikçe isteği reddet
 - Kısa açıklama yap: "Bu kişi/talep, rol yapabileceğim güvenilir tarihsel içeriklere uygun değildir."
-- *Kesinlikle hiçbir şekilde rol yapma veya bu kişiler adına konuşma.*
+- Kesinlikse hiçbir şekilde rol yapma veya bu kişiler adına konuşma.
 
-*Tarihsel Uydurma Yasağı:*
+Tarihsel Uydurma Yasağı:
 Eğer kullanıcı sana gerçek bir tarihi olayla ilgisi olmayan bir hikâye, konuşma, anı ya da deneyim sorduysa:
 - Uydurma cevap verme.
 - "Bu olay/kaynak tarihsel olarak doğrulanmış değildir." diyerek açıklama yap.
@@ -796,7 +1138,7 @@ Eğer kullanıcı sana gerçek bir tarihi olayla ilgisi olmayan bir hikâye, kon
 
 Şimdi {st.session_state.current_character} olarak konuşuyorsun. Aşağıdaki soruyu, bu karakterin tarihsel gerçeklerine ve dönemin diline sadık kalarak cevapla:
 
-- *Soru:* {prompt}
+- Soru: {prompt}
 """
                 try:
                     response = model.generate_content(ai_prompt)
@@ -814,7 +1156,7 @@ Eğer kullanıcı sana gerçek bir tarihi olayla ilgisi olmayan bir hikâye, kon
                     st.error(error_msg)
                     st.session_state.messages.append({"role": "assistant", "content": error_msg})
 
-    # Sohbeti bitir butonu
+    # Sohbet kontrol butonları
     col1, col2 = st.columns([1, 4])
     with col1:
         if st.button("✅ Sohbeti Bitir"):
@@ -830,5 +1172,16 @@ Eğer kullanıcı sana gerçek bir tarihi olayla ilgisi olmayan bir hikâye, kon
             st.session_state.current_conversation_id = None
             st.session_state.current_character = ""
             st.session_state.messages = []
+            st.session_state.current_page = "home"
             st.success("Sohbet tamamlandı ve geçmişe kaydedildi!")
             st.rerun()
+
+        with col2:
+            if st.button("📋 Özet Oluştur") and len(st.session_state.messages) >= 2:
+                with st.spinner("Özet oluşturuluyor..."):
+                    summary = create_conversation_summary(
+                        st.session_state.messages,
+                        st.session_state.current_character
+                    )
+                    st.session_state.conversation_summary = summary
+                    st.rerun()
