@@ -8,6 +8,7 @@ from io import BytesIO
 import uuid
 from datetime import datetime
 import random
+import time
 
 # ReportLab - Türkçe karakterler için en iyi seçenek
 try:
@@ -40,15 +41,28 @@ except ImportError:
     st.warning("python-docx kütüphanesi bulunamadı. Word indirme için: pip install python-docx")
 
 load_dotenv()
+
+# Query parameter ile persistent session ID
+def get_persistent_session_id():
+    try:
+        if "session" in st.query_params:
+            return st.query_params["session"]
+        else:
+            new_session = f"user_{int(time.time())}_{random.randint(1000, 9999)}"
+            st.query_params.session = new_session
+            return new_session
+    except:
+        return str(uuid.uuid4())
+
 api_key = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 
-# Session state için benzersiz ID
+# Session state için persistent ID
 if "user_session_id" not in st.session_state:
-    st.session_state.user_session_id = str(uuid.uuid4())
+    st.session_state.user_session_id = get_persistent_session_id()
 
 # Veritabanı bağlantısı - Yeni yapı
 
@@ -1235,4 +1249,3 @@ Eğer kullanıcı sana gerçek bir tarihi olayla ilgisi olmayan bir hikâye, kon
                     st.session_state.conversation_summary = summary
                     st.rerun()
 
-#
