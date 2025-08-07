@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import json
 from io import BytesIO
+import uuid
 from datetime import datetime
 import random
 
@@ -44,7 +45,13 @@ genai.configure(api_key=api_key)
 
 model = genai.GenerativeModel("gemini-2.5-flash")
 
+
+# Session state için benzersiz ID
+if "user_session_id" not in st.session_state:
+    st.session_state.user_session_id = str(uuid.uuid4())
+
 # Veritabanı bağlantısı - Yeni yapı
+
 conn = sqlite3.connect("historai.db", check_same_thread=False)
 c = conn.cursor()
 
@@ -83,7 +90,21 @@ if old_table_exists:
     c.execute("DROP TABLE chats")
 
 conn.commit()
+# Session ID için tablo güncellemeleri
+try:
+    c.execute("ALTER TABLE conversations ADD COLUMN session_id TEXT")
+except:
+    pass  # Zaten varsa hata vermez
 
+try:
+    c.execute("ALTER TABLE messages ADD COLUMN session_id TEXT")
+except:
+    pass  # Zaten varsa hata vermez
+
+# Eski verilere varsayılan session_id ver
+c.execute("UPDATE conversations SET session_id = 'legacy' WHERE session_id IS NULL")
+c.execute("UPDATE messages SET session_id = 'legacy' WHERE session_id IS NULL")
+conn.commit()
 st.set_page_config(page_title="HistorAI", layout="wide", page_icon="🧙‍♂")
 
 # Session state başlatma
@@ -246,11 +267,12 @@ with st.sidebar:
     # Sohbetleri getir (sabitlenenler önce)
     if filter_char:
         c.execute("""SELECT id, character, title, is_pinned, conversation_type FROM conversations 
-                    WHERE character LIKE ? ORDER BY is_pinned DESC, created_at DESC""",
-                  ('%' + filter_char + '%',))
+                    WHERE character LIKE ? AND session_id = ? ORDER BY is_pinned DESC, created_at DESC""",
+                  ('%' + filter_char + '%', st.session_state.user_session_id))
     else:
         c.execute("""SELECT id, character, title, is_pinned, conversation_type FROM conversations 
-                    ORDER BY is_pinned DESC, created_at DESC""")
+                    WHERE session_id = ? ORDER BY is_pinned DESC, created_at DESC""",
+                  (st.session_state.user_session_id,))
     conversations = c.fetchall()
 
     # Sohbet listesi
@@ -266,8 +288,9 @@ with st.sidebar:
                 st.session_state.current_character = char
                 st.session_state.current_page = "chat"
                 # Mevcut sohbetin mesajlarını yükle
-                c.execute("SELECT question, answer FROM messages WHERE conversation_id = ? ORDER BY created_at",
-                          (conv_id,))
+                c.execute(
+                    "SELECT question, answer FROM messages WHERE conversation_id = ? AND session_id = ? ORDER BY created_at",
+                    (conv_id, st.session_state.user_session_id))
                 messages = c.fetchall()
                 st.session_state.messages = []
                 for q, a in messages:
@@ -280,16 +303,18 @@ with st.sidebar:
             pin_text = "📌" if not is_pinned else "📍"
             if st.button(pin_text, key=f"pin_{conv_id}"):
                 new_pin_status = 0 if is_pinned else 1
-                c.execute("UPDATE conversations SET is_pinned = ? WHERE id = ?",
-                          (new_pin_status, conv_id))
+                c.execute("UPDATE conversations SET is_pinned = ? WHERE id = ? AND session_id = ?",
+                          (new_pin_status, conv_id, st.session_state.user_session_id))
                 conn.commit()
                 st.rerun()
 
         with col3:
             # Sil butonu
             if st.button("🗑", key=f"del_{conv_id}"):
-                c.execute("DELETE FROM messages WHERE conversation_id = ?", (conv_id,))
-                c.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
+                c.execute("DELETE FROM messages WHERE conversation_id = ? AND session_id = ?",
+                          (conv_id, st.session_state.user_session_id))
+                c.execute("DELETE FROM conversations WHERE id = ? AND session_id = ?",
+                          (conv_id, st.session_state.user_session_id))
                 conn.commit()
                 if st.session_state.current_conversation_id == conv_id:
                     st.session_state.current_conversation_id = None
@@ -313,8 +338,8 @@ with st.sidebar:
 
     # Tüm geçmişi sil
     if st.button("🧨 Tüm Geçmişi Sil"):
-        c.execute("DELETE FROM messages")
-        c.execute("DELETE FROM conversations")
+        c.execute("DELETE FROM messages WHERE session_id = ?", (st.session_state.user_session_id,))
+        c.execute("DELETE FROM conversations WHERE session_id = ?", (st.session_state.user_session_id,))
         conn.commit()
         st.session_state.current_conversation_id = None
         st.session_state.messages = []
@@ -361,14 +386,16 @@ with st.sidebar:
                 return None
 
             # Sohbet bilgilerini al
-            c.execute("SELECT character, title FROM conversations WHERE id = ?", (conversation_id,))
+            c.execute("SELECT character, title FROM conversations WHERE id = ? AND session_id = ?",
+                      (conversation_id, st.session_state.user_session_id))
             conv_info = c.fetchone()
             if not conv_info:
                 return None
 
             character, title = conv_info
-            c.execute("SELECT question, answer FROM messages WHERE conversation_id = ? ORDER BY created_at",
-                      (conversation_id,))
+            c.execute(
+                "SELECT question, answer FROM messages WHERE conversation_id = ? AND session_id = ? ORDER BY created_at",
+                (conversation_id, st.session_state.user_session_id))
             messages = c.fetchall()
 
             def register_modern_fonts():
@@ -507,14 +534,16 @@ with st.sidebar:
                 st.error("Word dosyası oluşturmak için python-docx gerekli: pip install python-docx")
                 return None
 
-            c.execute("SELECT character, title FROM conversations WHERE id = ?", (conversation_id,))
+            c.execute("SELECT character, title FROM conversations WHERE id = ? AND session_id = ?",
+                      (conversation_id, st.session_state.user_session_id))
             conv_info = c.fetchone()
             if not conv_info:
                 return None
 
             character, title = conv_info
-            c.execute("SELECT question, answer FROM messages WHERE conversation_id = ? ORDER BY created_at",
-                      (conversation_id,))
+            c.execute(
+                "SELECT question, answer FROM messages WHERE conversation_id = ? AND session_id = ? ORDER BY created_at",
+                (conversation_id, st.session_state.user_session_id))
             messages = c.fetchall()
 
             doc = Document()
@@ -561,14 +590,16 @@ with st.sidebar:
 
         # JSON oluşturma
         def create_conversation_json(conversation_id):
-            c.execute("SELECT character, title FROM conversations WHERE id = ?", (conversation_id,))
+            c.execute("SELECT character, title FROM conversations WHERE id = ? AND session_id = ?",
+                      (conversation_id, st.session_state.user_session_id))
             conv_info = c.fetchone()
             if not conv_info:
                 return None
 
             character, title = conv_info
-            c.execute("SELECT question, answer FROM messages WHERE conversation_id = ? ORDER BY created_at",
-                      (conversation_id,))
+            c.execute(
+                "SELECT question, answer FROM messages WHERE conversation_id = ? AND session_id = ? ORDER BY created_at",
+                (conversation_id, st.session_state.user_session_id))
             messages = c.fetchall()
 
             data = {
@@ -849,8 +880,10 @@ if st.session_state.current_page == "home" and not st.session_state.current_conv
             if st.button("🎭 Bu Karakterle Sohbete Başla", type="primary"):
                 st.session_state.current_character = selected_character
                 # Zamanda yolculuk sohbeti oluştur
-                c.execute("INSERT INTO conversations (character, title, conversation_type) VALUES (?, ?, ?)",
-                          (selected_character, f"{event_data['event']} - {selected_character}", "time_travel"))
+                c.execute(
+                    "INSERT INTO conversations (character, title, conversation_type, session_id) VALUES (?, ?, ?, ?)",
+                    (selected_character, f"{event_data['event']} - {selected_character}", "time_travel",
+                     st.session_state.user_session_id))
                 st.session_state.current_conversation_id = c.lastrowid
                 conn.commit()
 
@@ -986,8 +1019,10 @@ if st.session_state.current_page == "home" and not st.session_state.current_conv
                 with col2:
                     if st.button(f"💬 {character['name']} ile Sohbet Başlat", type="primary", key="start_chat_best"):
                         st.session_state.current_character = character['name']
-                        c.execute("INSERT INTO conversations (character, title, conversation_type) VALUES (?, ?, ?)",
-                                  (character['name'], f"{character['name']} ile kişilik testi sohbeti", "personality"))
+                        c.execute(
+                            "INSERT INTO conversations (character, title, conversation_type, session_id) VALUES (?, ?, ?, ?)",
+                            (character['name'], f"{character['name']} ile kişilik testi sohbeti", "personality",
+                             st.session_state.user_session_id))
                         st.session_state.current_conversation_id = c.lastrowid
                         conn.commit()
                         st.session_state.test_completed = False
@@ -1002,8 +1037,10 @@ if st.session_state.current_page == "home" and not st.session_state.current_conv
 
                     if st.button(f"💬 {character['name']} ile Sohbet Başlat", key=f"start_chat_{i}"):
                         st.session_state.current_character = character['name']
-                        c.execute("INSERT INTO conversations (character, title, conversation_type) VALUES (?, ?, ?)",
-                                  (character['name'], f"{character['name']} ile kişilik testi sohbeti", "personality"))
+                        c.execute(
+                            "INSERT INTO conversations (character, title, conversation_type, session_id) VALUES (?, ?, ?, ?)",
+                            (character['name'], f"{character['name']} ile kişilik testi sohbeti", "personality",
+                             st.session_state.user_session_id))
                         st.session_state.current_conversation_id = c.lastrowid
                         conn.commit()
                         st.session_state.test_completed = False
@@ -1034,8 +1071,8 @@ if st.session_state.current_page == "home" and not st.session_state.current_conv
         if character:
             st.session_state.current_character = character
             # Yeni conversation oluştur
-            c.execute("INSERT INTO conversations (character, title, conversation_type) VALUES (?, ?, ?)",
-                      (character, f"{character} ile sohbet", "manual"))
+            c.execute("INSERT INTO conversations (character, title, conversation_type, session_id) VALUES (?, ?, ?, ?)",
+                      (character, f"{character} ile sohbet", "manual", st.session_state.user_session_id))
             st.session_state.current_conversation_id = c.lastrowid
             conn.commit()
             st.session_state.current_page = "chat"
@@ -1065,8 +1102,12 @@ elif st.session_state.current_page == "chat" or st.session_state.current_convers
                             conn.commit()
 
                         st.session_state.current_character = suggestion['name']
-                        c.execute("INSERT INTO conversations (character, title, conversation_type) VALUES (?, ?, ?)",
-                                  (suggestion['name'], f"{suggestion['name']} ile tavsiye sohbeti", "suggestion"))
+                        c.execute("UPDATE conversations SET title = ? WHERE id = ? AND session_id = ?",
+                                  (title, st.session_state.current_conversation_id, st.session_state.user_session_id))
+                        c.execute(
+                            "INSERT INTO conversations (character, title, conversation_type, session_id) VALUES (?, ?, ?, ?)",
+                            (suggestion['name'], f"{suggestion['name']} ile tavsiye sohbeti", "suggestion",
+                             st.session_state.user_session_id))
                         st.session_state.current_conversation_id = c.lastrowid
                         conn.commit()
                         st.session_state.messages = []
@@ -1154,8 +1195,9 @@ Eğer kullanıcı sana gerçek bir tarihi olayla ilgisi olmayan bir hikâye, kon
 
                     # Mesajları kaydet
                     st.session_state.messages.append({"role": "assistant", "content": answer})
-                    c.execute("INSERT INTO messages (conversation_id, question, answer) VALUES (?, ?, ?)",
-                              (st.session_state.current_conversation_id, prompt, answer))
+                    c.execute(
+                        "INSERT INTO messages (conversation_id, question, answer, session_id) VALUES (?, ?, ?, ?)",
+                        (st.session_state.current_conversation_id, prompt, answer, st.session_state.user_session_id))
                     conn.commit()
 
                 except Exception as e:
@@ -1172,8 +1214,8 @@ Eğer kullanıcı sana gerçek bir tarihi olayla ilgisi olmayan bir hikâye, kon
                 first_question = st.session_state.messages[0]["content"] if st.session_state.messages[0][
                                                                                 "role"] == "user" else "Sohbet"
                 title = first_question[:50] + "..." if len(first_question) > 50 else first_question
-                c.execute("UPDATE conversations SET title = ? WHERE id = ?",
-                          (title, st.session_state.current_conversation_id))
+                c.execute("UPDATE conversations SET title = ? WHERE id = ? AND session_id = ?",
+                          (title, st.session_state.current_conversation_id, st.session_state.user_session_id))
                 conn.commit()
 
             st.session_state.current_conversation_id = None
@@ -1193,4 +1235,3 @@ Eğer kullanıcı sana gerçek bir tarihi olayla ilgisi olmayan bir hikâye, kon
                     st.session_state.conversation_summary = summary
                     st.rerun()
 
-#
