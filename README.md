@@ -25,7 +25,7 @@ https://btkhackathonproject-hefzbortmg4mxazvlpqgpx.streamlit.app/
 --------------------------------------------------------------------------------
 PROJE TANITIMI 
 ---------------------------------------------------------------------------------
-##🧙‍♂ HistorAI - Tarihi Karakter Chatbotu
+## 🧙‍♂ HistorAI - Tarihi Karakter Chatbotu
 
 🎯 Proje Özeti
 
