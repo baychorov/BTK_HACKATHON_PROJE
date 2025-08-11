@@ -71,37 +71,37 @@ Akademik çalışmalar için uygun formatlama
 --------------------------------------------------------------------------------------
 
 ## 🛠 Kullanılan Teknolojiler
-# Frontend & Backend
+### Frontend & Backend
 
 Streamlit: Modern web arayüzü ve gerçek zamanlı etkileşim
 Python: Ana programlama dili ve veri işleme
 SQLite: Yerel veritabanı yönetimi
 
-# Yapay Zeka
+### Yapay Zeka
 
 Google Gemini 2.5 Flash: Gelişmiş doğal dil işleme
 Özel Prompt Engineering: Tarihsel doğruluk ve karakter tutarlılığı
 
-# Dokümantasyon
+### Dokümantasyon
 
 ReportLab: PDF oluşturma ve tasarım
 python-docx: Word belgeleri üretimi
 JSON: Veri taşınabilirliği
 
-# 🎓 Eğitsel Değer
+### 🎓 Eğitsel Değer
 Tarih Öğretimi Devriminin Lideri
 
 Interaktif Öğrenme: Geleneksel ezber sistemden uzaklaşarak deneyimsel öğrenme
 Kişiselleştirilmiş Eğitim: Her kullanıcının öğrenme tarzına uygun yaklaşım
 Çoklu Zeka Teorisi: Görsel, işitsel ve kinestetik öğrenme stillerini destekleme
 
-# Akademik Standartlar
+### Akademik Standartlar
 
 Yalnızca tarihsel olarak doğrulanmış bilgiler
 Güvenilir kaynaklara dayalı karakter profilleri
 Bilimsel yöntemlerle geliştirilmiş içerik kontrolü
 
-# 🌟 Yenilikçi Yaklaşımlar
+### 🌟 Yenilikçi Yaklaşımlar
 1. Empati Temelli Tarih Öğrenimi
 Tarihi karakterlerle kurulan duygusal bağ, öğrenilen bilgilerin kalıcılığını artırır ve tarihi olayları daha derin anlamayı sağlar.
 2. Gamifikasyon Unsurları
