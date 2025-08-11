@@ -25,10 +25,13 @@ https://btkhackathonproject-hefzbortmg4mxazvlpqgpx.streamlit.app/
 --------------------------------------------------------------------------------
 PROJE TANITIMI 
 ---------------------------------------------------------------------------------
-🧙‍♂ HistorAI - Tarihi Karakter Chatbotu
+###🧙‍♂ HistorAI - Tarihi Karakter Chatbotu
+
 🎯 Proje Özeti
 HistorAI, yapay zeka teknolojisini tarihi eğitimle buluşturan yenilikçi bir platformdur. Kullanıcılar, tarihte yaşamış gerçek kişiliklerle doğrudan sohbet ederek geçmişi deneyimleyebilir ve tarihi bilgilerini interaktif şekilde öğrenebilirler.
+
 🚀 Ana Özellikler
+
 💬 Gerçek Tarihi Karakterlerle Sohbet
 
 Fatih Sultan Mehmet, Leonardo da Vinci, Mevlana gibi tarihi figürlerle gerçekçi konuşmalar
