@@ -33,35 +33,35 @@ HistorAI, yapay zeka teknolojisini tarihi eğitimle buluşturan yenilikçi bir p
 
 🚀 Ana Özellikler
 
-💬 Gerçek Tarihi Karakterlerle Sohbet
+### 💬 Gerçek Tarihi Karakterlerle Sohbet
 
 Fatih Sultan Mehmet, Leonardo da Vinci, Mevlana gibi tarihi figürlerle gerçekçi konuşmalar
 Dönem diline uygun, tarihsel olarak doğrulanmış yanıtlar
 Kişiliğe özel konuşma tarzları ve perspektifler
 
-⏰ Zamanda Yolculuk Deneyimi
+### ⏰ Zamanda Yolculuk Deneyimi
 
 İstanbul'un Fethi (1453), Malazgirt Savaşı (1071) gibi kritik tarihi olayların ortasına yolculuk
 Sinematik atmosfer betimlemeleri ile yaşayan tarih deneyimi
 Olay anında karakterlerle roleplay yapma fırsatı
 
-🧬 Akıllı Kişilik Eşleştirme
+### 🧬 Akıllı Kişilik Eşleştirme
 
 5 soruluk psikolojik test ile karakterle uyumluluk analizi
 Big Five kişilik modeli tabanlı bilimsel eşleştirme algoritması
 Kullanıcının sohbet tarzına göre otomatik karakter önerileri
 
-📚 Gelişmiş Sohbet Yönetimi
+### 📚 Gelişmiş Sohbet Yönetimi
 Tüm sohbetlerin otomatik kaydı ve kategorizasyonu
 Önemli sohbetleri sabitleyebilme özelliği
 Akıllı başlık oluşturma ve filtreleme sistemi
 
-📖 Teknik Tarihsel Özetleme
+### 📖 Teknik Tarihsel Özetleme
 Yapay zeka destekli sohbet özetleri
 Akademik standartlarda objektif tarihsel bilgi çıkarımı
 Öğrenilen bilgilerin sistematik organize edilmesi
 
-📥 Çoklu Format İndirme
+### 📥 Çoklu Format İndirme
 
 PDF, Word ve JSON formatlarında sohbet dışa aktarımı
 Modern tasarımlı, yazdırılabilir dokümantasyon
